@@ -36,6 +36,10 @@ def slice_img_around_mu(img, mu, slice_size):
         ax[1].set_title("slice")
         ax[2].imshow(np.squeeze(slice_)[:, :, 1, :])
         ax[2].set_title("slice")
+
+    References
+    ----------
+        Originally from https://github.com/CompVis/unsupervised-disentangling        
     """
     h, w = slice_size
     bn, img_h, img_w, c = img.get_shape().as_list()  # bn this actually 2bn now
@@ -111,6 +115,10 @@ def slice_img_with_mu_L_inv(img, mu, L_inv, scale=1.0, threshold=0.6):
         ax[1].set_title("slice")
         ax[2].imshow(np.squeeze(slice_)[:, :, 1, :])
         ax[2].set_title("slice")        
+
+    References
+    ----------
+        Originally from https://github.com/CompVis/unsupervised-disentangling
     """
     bn, h, w, nc = img.get_shape().as_list()
     bn, nk, _ = mu.get_shape().as_list()
