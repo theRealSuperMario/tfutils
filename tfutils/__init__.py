@@ -255,3 +255,68 @@ def astronaut(n_times):
     image = data.astronaut() / 255.0
     image = tf.to_float(image)
     return tf.stack([image] * n_times, axis=0)
+
+
+def discriminator_patch(image, train=True):
+    """ Discriminator on a patch of images with shape [49, 49]
+    
+    Parameters
+    ----------
+    image: Tensor
+        batch of images shaped [N, 49, 49, C]
+    train: bool, optional
+        train flag for batch norm
+
+    Returns
+    -------
+    probs, logits
+
+    References
+    ----------
+        Originally from https://github.com/CompVis/unsupervised-disentangling
+    """
+    padding = "VALID"
+    x0 = image
+    x1 = tf.layers.conv2d(
+        x0,
+        32,
+        4,
+        strides=1,
+        padding=padding,
+        activation=tf.nn.leaky_relu,
+        name="conv_0",
+    )  # 46
+    x1 = tf.layers.batch_normalization(x1, training=train, name="bn_0")
+    x1 = tf.layers.conv2d(
+        x1,
+        64,
+        4,
+        strides=2,
+        padding=padding,
+        activation=tf.nn.leaky_relu,
+        name="conv_1",
+    )  # 44
+    x1 = tf.layers.batch_normalization(x1, training=train, name="bn_1")
+    x2 = tf.layers.conv2d(
+        x1,
+        128,
+        4,
+        strides=2,
+        padding=padding,
+        activation=tf.nn.leaky_relu,
+        name="conv_2",
+    )  # 10
+    x2 = tf.layers.batch_normalization(x2, training=train, name="bn_2")
+    x3 = tf.layers.conv2d(
+        x2,
+        256,
+        4,
+        strides=2,
+        padding=padding,
+        activation=tf.nn.leaky_relu,
+        name="conv_3",
+    )  # 4
+    x3 = tf.layers.batch_normalization(x3, training=train, name="bn_3")
+    x4 = tf.reshape(x3, shape=[-1, 4 * 4 * 256])
+    x4 = tf.layers.dense(x4, 1, name="last_fc")
+    return tf.nn.sigmoid(x4), x4
