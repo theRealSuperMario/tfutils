@@ -417,21 +417,31 @@ def _draw_rect(center, h, w, imsize):
     cx, cy = tf.split(center, 2, axis=0)
     cx = tf.squeeze(cx)
     cy = tf.squeeze(cy)
+
+    pad_sizeh = h
+    pad_sizew = w
+    cx += pad_sizeh
+    cy += pad_sizew
+    imsize_pad = (imsize[0] + 2 * pad_sizeh, imsize[1] + 2 * pad_sizew, imsize[2])
+
     indices = tf.meshgrid(
         tf.range(cx - h // 2, cx + h // 2), tf.range(cy - w // 2, cy + w // 2)
     )
     indices = tf.stack(indices, 0)
     indices = tf.reshape(indices, (2, tf.reduce_prod(tf.shape(indices)[1:])))
 
-    indices_flat = tf_ravel_multi_index(indices, imsize[:2])
+    indices_flat = tf_ravel_multi_index(indices, imsize_pad[:2])
 
     indices_flat = tf.reshape(indices_flat, (tf.shape(indices_flat)[0], 1))
 
-    updates = tf.ones((tf.shape(indices_flat)[0], imsize[-1]))
-    shape = tf.constant([np.prod(imsize[:2]), imsize[-1]])
+    updates = tf.ones((tf.shape(indices_flat)[0], imsize_pad[-1]))
+    shape = tf.constant([np.prod(imsize_pad[:2]), imsize_pad[-1]])
     rect = tf.scatter_nd(indices_flat, updates, shape)
 
-    rect = tf.reshape(rect, imsize)
+    rect = tf.reshape(rect, imsize_pad)
+    rect = tf.image.crop_to_bounding_box(
+        rect, pad_sizeh, pad_sizew, imsize[0], imsize[1]
+    )
     return rect
 
 

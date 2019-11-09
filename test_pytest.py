@@ -138,6 +138,24 @@ def test__draw_rect():
     w = 3
     imsize = (10, 10, 3)
     m = _draw_rect(center, h, w, imsize)
+    assert len(np.unique(m)) == 2
+    assert np.sum(m) == (h - 1) * (w - 1) * 3
+    ax.imshow(np.squeeze(m), interpolation="nearest")
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test__draw_rect_outofbounds():
+    tf.enable_eager_execution()
+    from tfutils import _draw_rect
+
+    fig, ax = plt.subplots(1, 1)
+    center = tf.constant([1, 1])
+    h = 4
+    w = 4
+    imsize = (10, 10, 1)
+    m = _draw_rect(center, h, w, imsize)
+    assert np.sum(m) == 9
     ax.imshow(np.squeeze(m), interpolation="nearest")
     return fig
 
