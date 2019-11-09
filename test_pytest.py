@@ -5,6 +5,7 @@ import tensorflow as tf
 tf.enable_eager_execution()
 
 from skimage import data
+from matplotlib import pyplot as plt
 
 
 def astronaut(n_times):
@@ -23,7 +24,6 @@ def astronaut(n_times):
 @pytest.mark.mpl_image_compare
 def test_slice_img_around_mu():
     from tfutils import slice_img_around_mu
-    from matplotlib import pyplot as plt
 
     mu = np.zeros((1, 1, 2), dtype=np.float32)
     mu = tf.concat([mu, mu + 0.25], axis=1)
@@ -46,7 +46,6 @@ def test_slice_img_around_mu():
 @pytest.mark.mpl_image_compare
 def test_appearance_augmentation():
     from tfutils import appearance_augmentation
-    from matplotlib import pyplot as plt
 
     tf.set_random_seed(40)
     imgt = astronaut(2)
@@ -77,7 +76,6 @@ def test_appearance_augmentation():
 @pytest.mark.mpl_image_compare
 def test_slice_img_with_mu_L_inv():
     from tfutils import slice_img_with_mu_L_inv
-    from matplotlib import pyplot as plt
 
     mu = np.zeros((1, 1, 2), dtype=np.float32)
     mu = tf.concat([mu, mu + 0.25], axis=1)
@@ -105,7 +103,6 @@ def test_slice_img_with_mu_L_inv():
 @pytest.mark.mpl_image_compare
 def test_augment_img_at_mask():
     from tfutils import augment_img_at_mask
-    from matplotlib import pyplot as plt
 
     tf.set_random_seed(42)
 
@@ -125,4 +122,36 @@ def test_augment_img_at_mask():
     ax[2].set_title("mask 0")
     ax[3].imshow(np.squeeze(mask[..., 1]), cmap=plt.cm.gray)
     ax[3].set_title("mask 1")
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test__draw_rect():
+    from tfutils import _draw_rect
+
+    fig, ax = plt.subplots(1, 1)
+    center = tf.constant([5, 7])
+    h = 3
+    w = 3
+    imsize = (10, 10, 3)
+    m = _draw_rect(center, h, w, imsize)
+    ax.imshow(np.squeeze(m), interpolation="nearest")
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test_draw_rect():
+    from tfutils import draw_rect
+
+    fig, ax = plt.subplots(1, 2)
+    center = tf.constant([5, 7, 6, 6])
+    center = tf.reshape(center, (2, 2))
+    h = 3
+    w = 3
+    imsize = (10, 10, 1)
+    m = draw_rect(center, h, w, imsize)
+    ax[0].imshow(np.squeeze(m[0, ...]), interpolation="nearest")
+    ax[0].set_title("center : {}".format(center[0, :]))
+    ax[1].imshow(np.squeeze(m[1, ...]), interpolation="nearest")
+    ax[1].set_title("center : {}".format(center[1, :]))
     return fig

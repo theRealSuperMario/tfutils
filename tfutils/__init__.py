@@ -72,6 +72,75 @@ def slice_img_around_mu(img, mu, slice_size):
     return image_slices
 
 
+def mask_img_around_mu():
+    """similar to @slice_img_around_mu, this function returns a masked version (same shape) of the input
+    Parameters
+    ----------
+    img : Tensor
+        in range [-1, 1]. Shaped [N, H, W, C]
+    mu : Tensor
+        Batch of center points. Shaped [N, P, 2]
+    slice_size : Tuple of ints
+        height and width of slices to extract
+    
+    Returns
+    -------
+    image_slices
+        Tensor of extracted image slices. Shaped [N, slice_size[0], slice_size[1], P, C]
+
+    Examples
+    --------
+        mu = np.zeros((1, 1, 2), dtype=np.float32)
+        mu = tf.concat([mu, mu + 0.25], axis=1)
+        mut = tf.convert_to_tensor(mu)
+        imgt = astronaut(1)
+
+        slice_ = slice_img_around_mu(imgt, mut, (200, 200))
+
+        fig, ax = plt.subplots(2, 2)
+        ax = ax.ravel()
+        ax[0].imshow(np.squeeze(imgt)[...])
+        ax[0].set_title("Image")
+        ax[1].imshow(np.squeeze(slice_)[:, :, 0, :])
+        ax[1].set_title("slice")
+        ax[2].imshow(np.squeeze(slice_)[:, :, 1, :])
+        ax[2].set_title("slice")
+
+    References
+    ----------
+        Originally from https://github.com/CompVis/unsupervised-disentangling
+    """
+    h, w = slice_size
+    bn, img_h, img_w, c = img.get_shape().as_list()  # bn this actually 2bn now
+    bn_2, nk, _ = mu.get_shape().as_list()
+    assert int(h / 2)
+    assert int(w / 2)
+    assert bn_2 == bn
+
+    scal = tf.constant([img_h, img_w], dtype=tf.float32)
+    mu = tf.stop_gradient(mu)
+    mu_no_grad = tf.einsum("bkj,j->bkj", (mu + 1) / 2.0, scal)
+    mu_no_grad = tf.cast(mu_no_grad, dtype=tf.int32)
+
+    mu_no_grad = tf.reshape(mu_no_grad, shape=[bn, nk, 1, 1, 2])
+    y = tf.tile(
+        tf.reshape(tf.range(-h // 2, h // 2), [1, 1, h, 1, 1]), [bn, nk, 1, w, 1]
+    )
+    x = tf.tile(
+        tf.reshape(tf.range(-w // 2, w // 2), [1, 1, 1, w, 1]), [bn, nk, h, 1, 1]
+    )
+
+    field = tf.concat([y, x], axis=-1) + mu_no_grad
+
+    h1 = tf.tile(tf.reshape(tf.range(bn), [bn, 1, 1, 1, 1]), [1, nk, h, w, 1])
+
+    idx = tf.concat([h1, field], axis=-1)
+
+    image_slices = tf.gather_nd(img, idx)
+    image_slices = tf.transpose(image_slices, perm=[0, 2, 3, 1, 4])
+    return image_slices
+
+
 def slice_img_with_mu_L_inv(img, mu, L_inv, scale=1.0, threshold=0.6):
     """slices images with ellipses centered around means (mu) and inverse L matrices.
     
@@ -320,3 +389,103 @@ def discriminator_patch(image, train=True):
     x4 = tf.reshape(x3, shape=[-1, 4 * 4 * 256])
     x4 = tf.layers.dense(x4, 1, name="last_fc")
     return tf.nn.sigmoid(x4), x4
+
+
+def _draw_rect(center, h, w, imsize):
+    """Draw rectangle around center coord. Use @draw_rect for a batched version
+    
+    Parameters
+    ----------
+    center : tensor
+        center coordinate. Shaped [2,]. Locations in pixels (integers).
+    h : int
+        Height of rectangles to draw
+    w : int
+        Width of rectangles to draw
+    imsize : tuple, optional
+        final output image size, by default (10, 10, 1)
+
+    Examples
+    --------
+        center = tf.constant([5, 7])
+        h = 3
+        w = 3
+        imsize = (10, 10, 3)
+        m = _draw_rect(center, h, w, imsize)
+        plt.imshow(np.squeeze(m))
+    """
+    cx, cy = tf.split(center, 2, axis=0)
+    cx = tf.squeeze(cx)
+    cy = tf.squeeze(cy)
+    indices = tf.meshgrid(
+        tf.range(cx - h // 2, cx + h // 2), tf.range(cy - w // 2, cy + w // 2)
+    )
+    indices = tf.stack(indices, 0)
+    indices = tf.reshape(indices, (2, np.prod(indices.shape[1:])))
+
+    indices_flat = tf_ravel_multi_index(indices, imsize[:2])
+
+    indices_flat = tf.reshape(indices_flat, (indices_flat.shape[0], 1))
+
+    updates = tf.ones((indices_flat.shape[0], imsize[-1]))
+    shape = tf.constant([np.prod(imsize[:2]), imsize[-1]])
+    rect = tf.scatter_nd(indices_flat, updates, shape)
+
+    rect = tf.reshape(rect, imsize)
+    return rect
+
+
+def draw_rect(center, h: int, w: int, imsize=(10, 10, 1)):
+    """Draw rectangle filled with ones
+    
+    Parameters
+    ----------
+    center : tensor
+        A batch of center coordinates for the rectangles. Shaped [N, 2]. Locations in pixels (integers).
+    h : int
+        Height of rectangles to draw
+    w : int
+        Width of rectangles to draw
+    imsize : tuple, optional
+        final output image size, by default (10, 10, 1)
+    
+    Returns
+    -------
+    rect
+        batch of rectangles shaped [N,] + imsize
+
+    Examples
+    --------
+        center = tf.constant([5, 7, 6, 6])
+        center = tf.reshape(center, (2, 2))
+        h = 3
+        w = 3
+        imsize = (10, 10, 1)
+        m = draw_rect(center, h, 2, imsize)
+
+        plt.imshow(np.squeeze(m[1, ...]))
+    """
+    rects = tf.map_fn(lambda x: _draw_rect(x, h, w, imsize), center, dtype=tf.float32)
+    return rects
+
+
+def tf_ravel_multi_index(multi_index, dims):
+    # TODO: add link to stackoverflow
+    """[summary]
+    
+    Returns
+    -------
+    [type]
+        [description]
+
+    Examples
+    --------
+        idx = tf_ravel_multi_index(np.array([[5, 0], [1, 1]]), (10, 10))
+        i = np.zeros((100, ))
+        i[np.array(idx)] = 1
+        i = i.reshape((10, 10))
+
+        plt.imshow(i)
+    """
+    strides = tf.cumprod(dims, exclusive=True, reverse=True)
+    return tf.reduce_sum(multi_index * tf.expand_dims(strides, 1), axis=0)
