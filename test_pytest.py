@@ -2,8 +2,6 @@ import pytest
 import numpy as np
 import tensorflow as tf
 
-tf.enable_eager_execution()
-
 from skimage import data
 from matplotlib import pyplot as plt
 
@@ -23,6 +21,7 @@ def astronaut(n_times):
 
 @pytest.mark.mpl_image_compare
 def test_slice_img_around_mu():
+    tf.enable_eager_execution()
     from tfutils import slice_img_around_mu
 
     mu = np.zeros((1, 1, 2), dtype=np.float32)
@@ -45,6 +44,7 @@ def test_slice_img_around_mu():
 
 @pytest.mark.mpl_image_compare
 def test_appearance_augmentation():
+    tf.enable_eager_execution()
     from tfutils import appearance_augmentation
 
     tf.set_random_seed(40)
@@ -75,6 +75,7 @@ def test_appearance_augmentation():
 
 @pytest.mark.mpl_image_compare
 def test_slice_img_with_mu_L_inv():
+    tf.enable_eager_execution()
     from tfutils import slice_img_with_mu_L_inv
 
     mu = np.zeros((1, 1, 2), dtype=np.float32)
@@ -102,6 +103,7 @@ def test_slice_img_with_mu_L_inv():
 
 @pytest.mark.mpl_image_compare
 def test_augment_img_at_mask():
+    tf.enable_eager_execution()
     from tfutils import augment_img_at_mask
 
     tf.set_random_seed(42)
@@ -127,6 +129,7 @@ def test_augment_img_at_mask():
 
 @pytest.mark.mpl_image_compare
 def test__draw_rect():
+    tf.enable_eager_execution()
     from tfutils import _draw_rect
 
     fig, ax = plt.subplots(1, 1)
@@ -136,6 +139,29 @@ def test__draw_rect():
     imsize = (10, 10, 3)
     m = _draw_rect(center, h, w, imsize)
     ax.imshow(np.squeeze(m), interpolation="nearest")
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test_draw_rect_noneager():
+    from tensorflow.python.framework.ops import disable_eager_execution
+
+    disable_eager_execution()
+    from tfutils import draw_rect
+
+    fig, ax = plt.subplots(1, 2)
+
+    h = 3
+    w = 3
+    imsize = (10, 10, 1)
+    center = tf.placeholder(tf.int32, (None, 2), name="center")
+    mm = draw_rect(center, h, w, imsize)
+    with tf.Session() as sess:
+        m = sess.run(mm, {center: np.reshape(np.array([5, 7, 6, 6]), (2, 2))})
+    ax[0].imshow(np.squeeze(m[0, ...]), interpolation="nearest")
+    ax[0].set_title("center : {}".format(np.array(center[0, :])))
+    ax[1].imshow(np.squeeze(m[1, ...]), interpolation="nearest")
+    ax[1].set_title("center : {}".format(np.array(center[1, :])))
     return fig
 
 
@@ -154,4 +180,27 @@ def test_draw_rect():
     ax[0].set_title("center : {}".format(center[0, :]))
     ax[1].imshow(np.squeeze(m[1, ...]), interpolation="nearest")
     ax[1].set_title("center : {}".format(center[1, :]))
+    return fig
+
+
+@pytest.mark.mpl_image_compare
+def test_draw_rect_noneager():
+    from tensorflow.python.framework.ops import disable_eager_execution
+
+    disable_eager_execution()
+    from tfutils import draw_rect
+
+    fig, ax = plt.subplots(1, 2)
+
+    h = 3
+    w = 3
+    imsize = (10, 10, 1)
+    center = tf.placeholder(tf.int32, (None, 2), name="center")
+    mm = draw_rect(center, h, w, imsize)
+    with tf.Session() as sess:
+        m = sess.run(mm, {center: np.reshape(np.array([5, 7, 6, 6]), (2, 2))})
+    ax[0].imshow(np.squeeze(m[0, ...]), interpolation="nearest")
+    ax[0].set_title("center : {}".format(np.array(center[0, :])))
+    ax[1].imshow(np.squeeze(m[1, ...]), interpolation="nearest")
+    ax[1].set_title("center : {}".format(np.array(center[1, :])))
     return fig

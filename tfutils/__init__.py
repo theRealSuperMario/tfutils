@@ -421,13 +421,13 @@ def _draw_rect(center, h, w, imsize):
         tf.range(cx - h // 2, cx + h // 2), tf.range(cy - w // 2, cy + w // 2)
     )
     indices = tf.stack(indices, 0)
-    indices = tf.reshape(indices, (2, np.prod(indices.shape[1:])))
+    indices = tf.reshape(indices, (2, tf.reduce_prod(tf.shape(indices)[1:])))
 
     indices_flat = tf_ravel_multi_index(indices, imsize[:2])
 
-    indices_flat = tf.reshape(indices_flat, (indices_flat.shape[0], 1))
+    indices_flat = tf.reshape(indices_flat, (tf.shape(indices_flat)[0], 1))
 
-    updates = tf.ones((indices_flat.shape[0], imsize[-1]))
+    updates = tf.ones((tf.shape(indices_flat)[0], imsize[-1]))
     shape = tf.constant([np.prod(imsize[:2]), imsize[-1]])
     rect = tf.scatter_nd(indices_flat, updates, shape)
 
